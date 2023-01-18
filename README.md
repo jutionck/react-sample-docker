@@ -1,70 +1,74 @@
-# Getting Started with Create React App
+## React Sample Docker
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+### Clone Project
+```bash
+git clone https://github.com/jutionck/react-sample-docker.git
+```
+## Nginx
+### Configuration
+Buka file `default.conf` ini merupakan file nginx configuration untuk melakuakn `reverse proxy`.
+```
+upstream todoapp {
+  server       todo-be:8080;
+}
+server {
+    listen       80;
+    server_name  _;
 
-## Available Scripts
+    location / {
+	root /usr/share/nginx/html;
+    }
+    location /todos {
+            proxy_redirect     off;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Host $server_name;
+            proxy_pass http://todoapp/v1/api;
+    }
 
-In the project directory, you can run:
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
 
-### `npm start`
+}
+```
+## Docker
+### Dockerfile
+```
+FROM node:lts-alpine3.15 as build-env
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+WORKDIR /src
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+COPY . .
 
-### `npm test`
+RUN npm install
+RUN npm run build
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+FROM nginx:stable-alpine
+COPY default.conf /etc/nginx/conf.d/
+COPY --from=build-env /src/build/ /usr/share/nginx/html/
+```
 
-### `npm run build`
+### Docker Build
+```bash
+docker build -t todo-app-fe . 
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+### Docker Run
+- Sebelum dijalankan pastikan `BE` sudah berjalan, untuk `BE` bisa klik link berikut https://github.com/jutionck/spring-sample-docker/tree/4-rest-api silahkan clone dan ikuti sesuai `README.md`.
+- Pastikan berjalan untuk memastikan coba cek `docker ps -a`
+    ```bash
+    CONTAINER ID   IMAGE                 COMMAND                  CREATED         STATUS                  PORTS                    NAMES
+    ff99d144650d   todo-app-be           "java -jar /spring-s…"   5 minutes ago   Up 5 minutes            0.0.0.0:8080->8080/tcp   todo-be
+    7a8d27d2adb0   postgres:alpine3.17   "docker-entrypoint.s…"   5 minutes ago   Up 5 minutes            5432/tcp                 todo-db
+    
+    ```
+- Jika sudah makan bisa melanjutkan untuk menjalankan `FE` dengan perintah berikut.
+    ```bash
+    docker run --network=spring-sample-docker_todo-network --name todo-fe -p 3000:80 --rm todo-app-fe
+    ```
+Catatan:
+- Kita harus menghubungkan dengan `network` yang sudah dibuat sebelum untuk `BE` agar mereka saling berkomunikasi.
+- Network disini adalah `spring-sample-docker_todo-network` (jangan sampai ini tidak disertakan).
